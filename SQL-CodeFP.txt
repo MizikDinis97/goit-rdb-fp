@@ -88,17 +88,35 @@ limit 10;
 
 4)Колонка різниці в роках
 __________________________________________
-select
-    id,
-    year,
-    str_to_date(concat(year, '-01-01'), '%Y-%m-%d') as first_day_of_year,
-    curdate() as current_date_value,
-    timestampdiff(
+Добавляю нові колонки
+
+alter table infectious_cases_normalized
+add column first_day_of_year date,
+add column current_date_value date,
+add column year_difference int;
+
+Заповнив колонки
+update infectious_cases_normalized
+set 
+    first_day_of_year = str_to_date(concat(year, '-01-01'), '%Y-%m-%d'),
+    current_date_value = curdate(),
+    year_difference = timestampdiff(
         year,
         str_to_date(concat(year, '-01-01'), '%Y-%m-%d'),
         curdate()
-    ) AS year_difference
-from infectious_cases_normalized;
+    )
+where id > 0;
+
+Показ результату
+select 
+    id,
+    year,
+    first_day_of_year,
+    current_date_value,
+    year_difference
+from infectious_cases_normalized
+limit 10;
+
 5)Власна функція
 __________________________________________
 drop function if exists year_difference_func;
