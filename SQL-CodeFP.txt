@@ -1,0 +1,128 @@
+1)Створили схему pandemic та перевірили
+кількість рядків
+__________________________________________
+create schema pandemic;
+use pandemic;
+select count(*) as total_rows
+from infectious_cases;
+
+2)Нормалізація до 3NF
+Створюємо таблицю країн
+__________________________________________
+create table countries(
+id int auto_increment primary key,
+entity varchar(255),
+code varchar(10)
+);
+
+Заповнюємо її унікальними значеннями
+__________________________________________
+insert into countries(entity, code)
+select distinct Entity, Code
+from infectious_cases;
+
+Створюємо нормалізовану таблицю з даними
+__________________________________________
+create table infectious_cases_normalized(
+id int  auto_increment primary key,
+country_id int,
+year int,
+number_yaws float,
+polio_cases float,
+cases_guinea_worm float,
+number_rabies float,
+number_malaria float,
+number_hiv float,
+number_tuberculosis float,
+number_smallpox float,
+number_cholera_cases float,
+foreign key (country_id) references countries(id)
+);
+Заповнюємо нормалізовану таблицю
+__________________________________________
+INSERT INTO infectious_cases_normalized (
+    country_id,
+    year,
+    number_yaws,
+    polio_cases,
+    cases_guinea_worm,
+    number_rabies,
+    number_malaria,
+    number_hiv,
+    number_tuberculosis,
+    number_smallpox,
+    number_cholera_cases
+)
+SELECT 
+    c.id,
+    ic.Year,
+    nullif(ic.Number_yaws, ''),
+    nullif(ic.polio_cases, ''),
+    nullif(ic.cases_guinea_worm, ''),
+    nullif(ic.Number_rabies, ''),
+    nullif(ic.Number_malaria, ''),
+    nullif(ic.Number_hiv, ''),
+    nullif(ic.Number_tuberculosis, ''),
+    nullif(ic.Number_smallpox, ''),
+    nullif(ic.Number_cholera_cases, '')
+from infectious_cases ic
+join countries c 
+    on ic.Entity = c.entity 
+   and ic.Code = c.code;
+3)Аналіз Number_rabies
+__________________________________________
+select
+    c.entity,
+    c.code,
+    avg(n.number_rabies) as avg_rabies,
+    MIN(n.number_rabies) as min_rabies,
+    MAX(n.number_rabies) as max_rabies,
+    SUM(n.number_rabies) as sum_rabies
+from infectious_cases_normalized n
+join countries c 
+    on n.country_id = c.id
+where n.number_rabies is not null
+group by c.entity, c.code
+order by avg_rabies desc
+limit 10;
+
+4)Колонка різниці в роках
+__________________________________________
+select
+    id,
+    year,
+    str_to_date(concat(year, '-01-01'), '%Y-%m-%d') as first_day_of_year,
+    curdate() as current_date_value,
+    timestampdiff(
+        year,
+        str_to_date(concat(year, '-01-01'), '%Y-%m-%d'),
+        curdate()
+    ) AS year_difference
+from infectious_cases_normalized;
+5)Власна функція
+__________________________________________
+drop function if exists year_difference_func;
+
+DELIMITER //
+
+create function year_difference_func(input_year int)
+returns int
+deterministic
+begin
+    return timestampdiff(
+        year,
+        str_to_date(concat(input_year, '-01-01'), '%Y-%m-%d'),
+        curdate()
+    );
+end //
+
+DELIMITER ;
+
+Використання функції
+select
+    id,
+    year,
+    str_to_date(concat(year, '-01-01'), '%Y-%m-%d') as first_day_of_year,
+    curdate() as current_date_value,
+    year_difference_func(year) as year_difference
+from infectious_cases_normalized;
